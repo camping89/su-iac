@@ -1,0 +1,62 @@
+Parameters:
+  ProjectName:
+    Description: The name of the project.
+    Type: String
+  Environment:
+    Description: Deployment environment
+    Type: String
+  CPU:
+    Description: Enter CPU size (MB)
+    Type: String
+    Default: '256'
+  Memory:
+    Description: Enter Memory size (MB)
+    Type: String
+    Default: '512'
+  ContainerPort:
+    Description: Container Port for ECS service
+    Type: Number
+  DesiredCount:
+    Description: Desired Count for ECS service
+    Type: Number
+
+Resources:
+  ECSTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      Family: !Sub "${ProjectName}-${Environment}-Task"
+      Cpu: !Ref CPU
+      Memory: !Ref Memory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+      - FARGATE
+      ExecutionRoleArn:
+        "Fn::ImportValue": !Sub "${ProjectName}-${Environment}-IAMExecutionRole"
+      ContainerDefinitions:
+      - Name: !Sub "${ProjectName}-${Environment}-Container"
+        Image: docker.io/nginx:stable-perl
+        #Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRName}:latest'
+        Essential: true
+        PortMappings:
+        - ContainerPort: !Ref ContainerPort
+          Protocol: tcp
+
+  ECSService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster:
+        "Fn::ImportValue": !Sub "${ProjectName}-${Environment}-ECS-Cluster"
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref ECSTaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+          - "Fn::ImportValue": !Sub "${ProjectName}-${Environment}-PublicSubnet1ID"
+          - "Fn::ImportValue": !Sub "${ProjectName}-${Environment}-PublicSubnet2ID"
+          SecurityGroups:
+          - "Fn::ImportValue": !Sub "${ProjectName}-${Environment}-sg"
+          AssignPublicIp: ENABLED
+
+
+
